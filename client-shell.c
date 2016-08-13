@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <signal.h> 
+#include <stdbool.h>
 
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
@@ -48,34 +49,75 @@ void error(char *msg)
 
 int child_pid;
 struct sigaction old_action;
-
+ 
+// char s[]="Type 'exit' to terminate\n";
+void freeMemory(char**);
 
 void sigint_handler(int sig_no)
-{
-    printf("CTRL-C pressed\n");
-    kill(child_pid, SIGINT);
+{   
+    printf("\n");
+    // freeMemory(tokens);
+    // sigaction(SIGINT, &old_action, NULL);
+    // write(fileno(stdin), s, sizeof s - 1);
+    if(child_pid != 0)
+      kill(child_pid, SIGKILL);
+    // exit(0);
 }
+char COMMANDS[][8] = {"cd","server","getfl","getsq","getpl","getbg","exit"};
+int find_id(char * x)
+{
+  // id denotes the manually alotted id to the command
+  int id = -1,i;
+  if(x == NULL)
+    return -1;
+  for(i=0;i<8;i++)
+  {
+      if(strcmp(x,COMMANDS[i]) == 0){
+          id = i+1;
+          break;
+      }
+  }
+  if(id == -1)
+    id = 0; // command id for executable binaries
+
+  return id;
+}
+
+
 
 int main(void)
 {
-  char  line[MAX_INPUT_SIZE];            
-  char  **tokens;              
+  char line[MAX_INPUT_SIZE];
+  char **tokens;            
+  int i;           
   int pid;
+  int command_id;
+  bool toBreak = false;
+
+  for(i=0;i<8;i++)
+    printf("%s\n",COMMANDS[i]);
 
   struct sigaction action;
   memset(&action, 0, sizeof(action));
+  sigemptyset (&action.sa_mask);
+  action.sa_flags = 0;
   action.sa_handler = &sigint_handler;
   sigaction(SIGINT, &action, &old_action);
 
 
-
   while (1) {           
 
+    child_pid = 0;
     printf("Hello>");     
     bzero(line, MAX_INPUT_SIZE);
     // gets(line);
     fgets(line, MAX_INPUT_SIZE, stdin);
     tokens = tokenize(line);
+    
+    if(tokens[0] != NULL){
+      if(strcmp(tokens[0],"exit") == 0)
+      toBreak = true;
+    }
 
     pid = fork();
     if(pid == -1){
@@ -83,9 +125,25 @@ int main(void)
       exit(1);
     }
     else if(pid == 0){
-      // printf("in child\n");
-      if( execvp(tokens[0],tokens) == -1)
-        perror("Exec failed");
+
+      command_id = find_id(tokens[0]);
+      switch(command_id){
+
+        case 0:
+          if( execvp(tokens[0],tokens) == -1)
+            perror("Exec failed");
+          break;
+
+        case 7:
+          kill(0,SIGKILL);
+          toBreak = true;
+          break;
+
+        default:
+          break;
+
+      }
+
       exit(0);
     }
     else{
@@ -93,6 +151,15 @@ int main(void)
         // printf("in parent\n");
       waitpid(pid, NULL, 0);
     }
+
+    //Freeing the allocated memory 
+    for(i=0;tokens[i]!=NULL;i++){
+      free(tokens[i]);
+    }
+    free(tokens);
+
+    if(toBreak)
+      break;
 
     // // Read and run input commands.
     // while(getcmd(buf, sizeof(buf)) >= 0){
