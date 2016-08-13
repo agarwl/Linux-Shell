@@ -14,6 +14,11 @@
 #define MAX_NUM_TOKENS 64
 
 // Helper function to tokenize the user input command
+void getfl(char **tokens);
+void getsq(char **tokens);
+void getpl(char **tokens);
+void *connection(void* threadid);
+
 char **tokenize(char *line)
 {
   char **tokens = (char **)malloc(MAX_NUM_TOKENS * sizeof(char *));
@@ -49,7 +54,7 @@ void error(char *msg)
 
 int child_pid;
 struct sigaction old_action;
-char portno[MAX_TOKEN_SIZE],hostname[MAX_TOKEN_SIZE];
+char portno[MAX_TOKEN_SIZE],host[MAX_TOKEN_SIZE];
  
 // char s[]="Type 'exit' to terminate\n";
 void freeMemory(char**);
@@ -150,7 +155,7 @@ int main(void)
         break;
 
       case 2:
-          strcpy(hostname,tokens[1]);
+          strcpy(host,tokens[1]);
           strcpy(portno,tokens[2]);
           break;
 
@@ -174,8 +179,17 @@ int main(void)
               if( execvp(tokens[0],tokens) == -1)
                 perror("Exec failed");
               break;
-            case 2:
+            case 3:
+                getfl(tokens);
+                break;
 
+            case 4:
+                getsq(tokens);
+                break;
+
+            case 5:
+                getpl(tokens);
+                break;
 
             default:
               break;
@@ -203,4 +217,101 @@ int main(void)
   }
 
   exit(0);
+}
+
+void getfl(char **tokens)
+{
+    int i;
+    for (i = 2; i < 5; ++i)
+    {
+      tokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
+    }
+    strcpy(portno,"5000");
+    strcpy(host,"localhost");
+    strcpy(tokens[0],"./get-one-file");
+    strcpy(tokens[2],host);
+    strcpy(tokens[3],portno);
+    strcpy(tokens[4],"display");
+    tokens[5] = NULL;
+    for (i = 0; tokens[i] != NULL; ++i)
+    {
+        printf("%s\t",tokens[i]);
+    }
+    if( execvp(tokens[0],tokens) == -1)
+        perror("Exec failed");
+    exit(0);
+}
+
+
+void getsq (char **tokens)
+{
+    int i;
+    char *newtokens[6];
+
+    for (i = 0; i < 5; ++i)
+    {
+      newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
+    }
+    strcpy(portno,"5000");
+    strcpy(host,"localhost");
+    strcpy(newtokens[0],"./get-one-file");
+    strcpy(newtokens[2],host);
+    printf("%s\n", host);
+    strcpy(newtokens[3],portno);
+    printf("%s\n", portno);
+    strcpy(newtokens[4],"nodisplay");
+    newtokens[5] = NULL;
+    i = 1;
+    while (tokens[i] != NULL)
+    {
+        strcpy(newtokens[1],tokens[i]);
+        int j;
+        for (j = 0; newtokens[j] != NULL; ++j)
+        {
+            printf("%s ",newtokens[j]);
+        }
+        if( execvp(newtokens[0],newtokens) == -1)
+            perror("Exec failed");
+        exit(0);
+        i++;
+    }
+    return;
+}
+
+void getpl (char **tokens)
+{
+    pthread_t tid[MAX_NUM_TOKENS];          //array of threads 
+    int i;
+    for (i=1; tokens[i] != NULL; i++) //create threads by calling function 'connection' and passing thread number as argument
+    {   
+        if( pthread_create( &tid[i] , NULL ,  connection , (void*) tokens[i]) < 0)      
+        {
+            error("could not create thread");
+        }
+    }
+    int j;
+    for (j = 1; j < i; j++)
+       pthread_join(tid[j], NULL);      //join the threads when all have been executed
+    return;
+}
+
+void *connection(void *threadid)
+{
+    int i;
+    char *newtokens[6];
+    for (i = 0; i < 5; ++i)
+    {
+      newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
+    }
+    strcpy(portno,"5000");
+    strcpy(host,"localhost");
+    newtokens[0] = "./get-one-file ";
+    newtokens[1] = (char*) threadid;
+    newtokens[2] = host;
+    newtokens[3] = portno;
+    newtokens[4] = "nodisplay";
+    newtokens[5] = NULL;
+    if( execvp(newtokens[0],newtokens) == -1)
+        perror("Exec failed");
+    exit(0);
 }
