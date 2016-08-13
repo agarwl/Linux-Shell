@@ -101,8 +101,9 @@ int readMyFile(int sock,char* mode)
     {
         numbytes_read += bytes_read;
         if(toPrint){
-            // printf("%d bytes read\n",bytes_read);
-            printf("%.*s", bytes_read, buffer);
+            printf("%d bytes read\n",bytes_read);
+            // printf("%.*s", bytes_read, buffer);
+            printf("%s",buffer );
         }
     }; 
 

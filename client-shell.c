@@ -90,6 +90,81 @@ int find_id(char * x)
   return id;
 }
 
+int parse_getfl(char ** tokens)
+{ 
+  int i =0;
+  int k = 0;
+  while(tokens[i] != NULL)
+  {
+    if(i==2){
+      if(strcmp(tokens[i] , ">") == 0)
+        k = 1;
+      else if(strcmp(tokens[i],"|") == 0)
+        k = 2;
+      else{
+        k = -1;
+        perror("Incorrect arguments passed to getfl\n");
+      }
+    }
+    i++;
+  }
+  return k;
+}
+
+void handle_getfl(int k,char **tokens)
+{
+  int p[2];
+  switch(k){
+
+    case 1:
+      close(1);
+      if(open(tokens[3], O_WRONLY) < 0)
+        error("open failed");
+
+    case 0:
+      getfl(tokens);
+      break;
+    
+    case 2: 
+      if(pipe(p) == -1)
+        error("pipe failed");
+      
+      int pid = fork();
+      if(pid < 0)
+        error("fork");
+      else if(pid == 0){
+        close(1);
+        dup(p[1]);
+        close(p[0]);
+        close(p[1]);
+        getfl(tokens);
+      }
+      
+      pid = fork();
+      if(pid < 0)
+        error("fork");
+      else if(pid == 0){
+        close(0);
+        dup(p[0]);
+        close(p[0]);
+        close(p[1]);
+        if( execvp(tokens[3],tokens+3) == -1)
+          error("Exec failed");
+      }
+      
+      close(p[0]);
+      close(p[1]);
+      wait(NULL);
+      wait(NULL);
+      break;
+      
+    default:
+      break;
+  }
+  exit(0);
+
+}
+
 // timeout value to periodically kill dead children
 // after an interval of 5s
 int timeout = 2;
@@ -133,7 +208,7 @@ int main(void)
   // create thread for reaping dead child
   pthread_t my_thread;
   if(pthread_create( &my_thread , NULL ,  kill_zombies , NULL) < 0)
-      perror("could not create thread");
+      error("could not create thread");
 
 
   while (1) {           
@@ -179,11 +254,13 @@ int main(void)
 
             case 0:
               if( execvp(tokens[0],tokens) == -1)
-                perror("Exec failed");
+                error("Exec failed");
                 break;
 
             case 3:
-                getfl(tokens);
+                i = parse_getfl(tokens);
+                handle_getfl(i,tokens);
+                // getfl(tokens);
                 break;
 
             case 4:

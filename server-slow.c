@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 
 #define min(a, b) ((a < b) ? a : b)
 #define BUF_SIZE 30
@@ -166,7 +167,7 @@ int senddata(int sock, void *buf, int buflen)
         int num = send(sock, pbuf, buflen, 0);
         pbuf += num;
         buflen -= num;
-        sleep(1);
+        // sleep(1);
     }
 
     return 1;

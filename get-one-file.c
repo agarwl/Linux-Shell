@@ -40,9 +40,6 @@ int main(int argc, char *argv[])
     file = argv[1];
     mode = argv[4];                     //set file download mode as sixth input argument
 
-
-  
-
     if (server == NULL) {       //check if host exists
         fprintf(stderr,"ERROR, no such host\n");
         exit(0);
