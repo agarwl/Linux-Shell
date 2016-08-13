@@ -18,7 +18,7 @@ struct sigaction old_action;
 
 void sigint_handler(int sig_no)
 {
-    printf("\nReceived SIGINT; downloaded %d bytes so far.\n",numbytes_read);
+    printf(" Received SIGINT; downloaded %d bytes so far.\n",numbytes_read);
     sigaction(SIGINT, &old_action, NULL);
 }
 

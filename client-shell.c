@@ -49,6 +49,7 @@ void error(char *msg)
 
 int child_pid;
 struct sigaction old_action;
+char portno[MAX_TOKEN_SIZE],hostname[MAX_TOKEN_SIZE];
  
 // char s[]="Type 'exit' to terminate\n";
 void freeMemory(char**);
@@ -60,7 +61,7 @@ void sigint_handler(int sig_no)
     // sigaction(SIGINT, &old_action, NULL);
     // write(fileno(stdin), s, sizeof s - 1);
     if(child_pid != 0)
-      kill(child_pid, SIGKILL);
+      kill(child_pid, SIGINT);
     // exit(0);
 }
 char COMMANDS[][8] = {"cd","server","getfl","getsq","getpl","getbg","exit"};
@@ -81,6 +82,22 @@ int find_id(char * x)
     id = 0; // command id for executable binaries
 
   return id;
+}
+
+// timeout value to periodically kill dead children
+// after an interval of 5s
+int timeout = 2;
+
+// a function to kill zombies periodically
+void *kill_zombies()
+{
+    int w;
+    while(1){
+        while (( w = waitpid(-1, NULL, WNOHANG) ) > 0)//{
+                // printf("Killed zombie %d\n", w);
+        // }
+        sleep(timeout);
+    }
 }
 
 
@@ -104,6 +121,11 @@ int main(void)
   action.sa_handler = &sigint_handler;
   sigaction(SIGINT, &action, &old_action);
 
+  // create thread for reaping dead child
+  pthread_t my_thread;
+  if(pthread_create( &my_thread , NULL ,  kill_zombies , NULL) < 0)
+      perror("could not create thread");
+
 
   while (1) {           
 
@@ -119,37 +141,55 @@ int main(void)
       toBreak = true;
     }
 
-    pid = fork();
-    if(pid == -1){
-      printf("Fork Failed\n");
-      exit(1);
-    }
-    else if(pid == 0){
-
       command_id = find_id(tokens[0]);
       switch(command_id){
+        
+      case 1:
+        if(chdir(tokens[1]) < 0)
+          printf("cannot cd %s\n", tokens[1]);
+        break;
 
-        case 0:
-          if( execvp(tokens[0],tokens) == -1)
-            perror("Exec failed");
+      case 2:
+          strcpy(hostname,tokens[1]);
+          strcpy(portno,tokens[2]);
           break;
 
-        case 7:
-          kill(0,SIGKILL);
-          toBreak = true;
-          break;
+      case 7:
+        kill(0,SIGINT);
+        toBreak = true;
+      
+      default:
 
-        default:
-          break;
+        pid = fork();
+        
+        if(pid == -1){
+          printf("Fork Failed\n");
+          exit(1);
+        }
+        else if(pid == 0){
 
-      }
+          switch(command_id){
 
-      exit(0);
-    }
-    else{
-      child_pid = pid;
-        // printf("in parent\n");
-      waitpid(pid, NULL, 0);
+            case 0:
+              if( execvp(tokens[0],tokens) == -1)
+                perror("Exec failed");
+              break;
+            case 2:
+
+
+            default:
+              break;
+          }
+          exit(0);
+        }
+        else{
+
+          if(command_id !=  6){
+            child_pid = pid;
+            waitpid(pid, NULL, 0);
+          }
+        }
+        break;
     }
 
     //Freeing the allocated memory 
@@ -160,20 +200,6 @@ int main(void)
 
     if(toBreak)
       break;
-
-    // // Read and run input commands.
-    // while(getcmd(buf, sizeof(buf)) >= 0){
-    //   if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
-    //     // Clumsy but will have to do for now.
-    //     // Chdir has no effect on the parent if run in the child.
-    //     buf[strlen(buf)-1] = 0;  // chop \n
-    //     if(chdir(buf+3) < 0)
-    //       printf(2, "cannot cd %s\n", buf+3);
-    //     continue;
-    //   }
-    //   if(fork1() == 0)
-    //     runcmd(parsecmd(buf));
-    //   wait();
   }
 
   exit(0);
