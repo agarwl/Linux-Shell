@@ -305,7 +305,7 @@ void *connection(void *threadid)
     }
     strcpy(portno,"5000");
     strcpy(host,"localhost");
-    newtokens[0] = "./get-one-file ";
+    newtokens[0] = "./get-one-file";
     newtokens[1] = (char*) threadid;
     newtokens[2] = host;
     newtokens[3] = portno;
