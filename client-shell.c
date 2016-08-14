@@ -167,22 +167,23 @@ void handle_getfl(int k,char **tokens)
   exit(0);
 
 }
+
 int checkArguments(int command_id, char**tokens)
 {
     if (command_id > 0 && command_id < 7 && tokens[1] == NULL)
     {
         printf("Less arguments provided\n");
-        return 0;
+        return -1;
     }
-    if (command_id == 6 && tokens[2] != NULL)
+    if (((command_id == 6 || command_id == 1) && tokens[2] != NULL) || (command_id == 7 && tokens[1] != NULL))
     {
-        printf("Invalid argumnents\n");
-        return 0;
+        printf("More argumnents given\n");
+        return -1;
     }
     if (command_id == 2 && (tokens[2] == NULL || tokens[3] != NULL))
     {
         printf("Invalid argumnents\n");
-        return 0;
+        return -1;
     }
     return 1;
 }
@@ -244,8 +245,8 @@ int main(void)
     tokens = tokenize(line);
 
     command_id = find_id(tokens[0]);
-    if (checkArguments(command_id,tokens) == 0)
-        exit(0);
+    if (checkArguments(command_id,tokens) == -1)
+        continue;
 
     switch(command_id){
       
@@ -407,6 +408,7 @@ void getpl (char **tokens)
     int j;
     for (j = 1; j < i; j++)
        pthread_join(tid[j], NULL);      //join the threads when all have been executed
+    wait(NULL);
     return;
 }
 
@@ -430,11 +432,6 @@ void *connection(void *threadid)
     }
     else if(pid == 0)
     {
-        if(strcmp(newtokens[1],"files/foo3.txt") == 0){
-            char * arg[2] = {"ls",NULL};
-            execvp("ls",arg);
-        }
-
         if( execvp(newtokens[0],newtokens) == -1)
             perror("Exec failed");
     }
