@@ -7,9 +7,11 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <signal.h> 
-#include <stdbool.h>
+// #include <stdbool.h>
 #include <pthread.h>
 #include <errno.h>
+#include <set>
+#include <assert.h>
 
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
@@ -17,11 +19,13 @@
 
 
 // Helper function to tokenize the user input command
-void getfl(char **tokens);
+void getfl(char **tokens,bool display=1);
 void getsq(char **tokens);
 void getpl(char **tokens);
 void *connection(void* threadid);
-char** filltokens(char*newtokens[],char*file);
+void filltokens(char **newtokens,bool display=0);
+void freeMemory(char**);
+void myexec(char **tokens);
 
 char **tokenize(char *line)
 {
@@ -56,22 +60,16 @@ void error(char *msg)
     exit(0);
 }
 
-int child_pid;
-int ppgid;
 struct sigaction old_action;
 char portno[MAX_TOKEN_SIZE],host[MAX_TOKEN_SIZE];
- 
-// char s[]="Type 'exit' to terminate\n";
-void freeMemory(char**);
+std::set<pid_t> background_pids;
+
 
 void sigint_handler(int sig_no)
 {   
+    sleep(0.1);
     printf("\n");
-    if(child_pid != 0){
-    //   printf("%d in handler\n",child_pid);
-      kill(child_pid, SIGINT);
-      waitpid(child_pid,NULL,0);
-    }
+    // printf(" Ctrl-C pressed\n");
 }
 char COMMANDS[][8] = {"cd","server","getfl","getsq","getpl","getbg","exit"};
 int find_id(char * x)
@@ -117,6 +115,7 @@ int parse_getfl(char ** tokens)
 void handle_getfl(int k,char **tokens)
 {
   int p[2];
+  int pid;
   switch(k){
 
     case 1:
@@ -132,7 +131,7 @@ void handle_getfl(int k,char **tokens)
       if(pipe(p) == -1)
         error("pipe failed");
       
-      int pid = fork();
+      pid = fork();
       if(pid < 0)
         error("fork");
       else if(pid == 0){
@@ -187,24 +186,29 @@ int checkArguments(int command_id, char**tokens)
     }
     return 1;
 }
+
 // timeout value to periodically kill dead children
 // after an interval of 5s
 int timeout = 2;
 
 // a function to kill zombies periodically
-void *kill_zombies()
+void *kill_zombies(void *)
 {
-    int w;
+    pid_t w;
+    int status;
     
     while(1){
-        printf("Still working");
-        while (( w = waitpid(-1, NULL, WNOHANG) ) > 0)
-        {
 
-            if(getpgid(w) != ppgid){
-              printf("Background process with pid %d completed\n",w);
+        while (( w = waitpid(-1, &status, WNOHANG) ) > 0)
+        {
+            if(background_pids.count(w) != 0){
+              background_pids.erase(w);
+              if (WIFEXITED(status)) 
+                printf("Background process with pid %d completed\n",w);
+              else if (WIFSIGNALED(status)) 
+                printf("Background process with pid %d exited due to errors!",w);
+              printf("Press [ENTER] to continue\n");
             }
-            // printf("Killed zombie %d\n", w);
         }
         sleep(timeout);
     }
@@ -212,16 +216,15 @@ void *kill_zombies()
 
 int main(void)
 {
+
+  memset( host, '\0', sizeof(char)*MAX_TOKEN_SIZE );
+  memset( portno, '\0', sizeof(char)*MAX_TOKEN_SIZE );
   char line[MAX_INPUT_SIZE];
   char **tokens;            
   int i;           
-  int pid,myid;
+  int pid;
   int command_id;
   bool toBreak = false;
-  ppgid = getpgid(getpid());
-  printf("Parent's %d\n",ppgid);
-  // for(i=0;i<8;i++)
-  //   printf("%s\n",COMMANDS[i]);
 
   struct sigaction action;
   memset(&action, 0, sizeof(action));
@@ -238,7 +241,6 @@ int main(void)
 
   while (1) {           
 
-    child_pid = myid = 0;
     printf("Hello>");     
     bzero(line, MAX_INPUT_SIZE);
     fgets(line, MAX_INPUT_SIZE, stdin);
@@ -261,9 +263,10 @@ int main(void)
           break;
 
       case 7:
-        // kill(0,SIGINT);
         kill(0,SIGINT);
-        kill(myid,SIGINT);
+        for (std::set<pid_t>::iterator it=background_pids.begin(); 
+            it!=background_pids.end(); ++it)
+          kill(*it,SIGINT);
         toBreak = true;
         break;
       
@@ -277,6 +280,7 @@ int main(void)
         }
         else if(pid == 0){
 
+          sigaction(SIGINT, &old_action, NULL);
           switch(command_id){
 
             case 0:
@@ -287,7 +291,6 @@ int main(void)
             case 3:
                 i = parse_getfl(tokens);
                 handle_getfl(i,tokens);
-                // getfl(tokens);
                 break;
 
             case 4:
@@ -299,10 +302,9 @@ int main(void)
                 break;
 
             case 6:
-                myid = getpid();
-                setpgid(myid,0);
-                printf("Background process with pid %d and pgid %d started\n",getpid(),getpgid(pid));
-                getfl(tokens);
+                assert(setpgid(0,0) == 0);
+                printf("Background process with pid %d started\n",getpid());
+                getfl(tokens,0);
                 break;
 
             default:
@@ -311,26 +313,22 @@ int main(void)
           exit(0);
         }
         else{
-          // printf("Child's %d\n",getpgid(pid));
           if(command_id !=  6){
-            child_pid = pid;
             waitpid(pid, NULL, 0);
           }
           else{
             if (setpgid(pid, pid) < 0 && errno != EACCES)
               continue;
-            myid = pid;
-            child_pid = 0;
-            // printf("Background process with pid %d and pgid %d started\n",pid,getpgid(pid));
+            background_pids.insert(pid);
           }
         }
     }
-
     //Freeing the allocated memory 
     for(i=0;tokens[i]!=NULL;i++){
       free(tokens[i]);
     }
     free(tokens);
+
 
     if(toBreak)
       break;
@@ -339,43 +337,62 @@ int main(void)
   exit(0);
 }
 
-void getfl(char **tokens)
+void getfl(char **tokens,bool display)
 {
-    int i;
     char *newtokens[6];
-    for (i = 0; i < 5; ++i)
-    {
-      newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
-    }
-    strcpy(portno,"5000");
-    strcpy(host,"localhost");
-    filltokens(newtokens,tokens[1]);
-    strcpy(newtokens[4],"display");
-    for (i = 0; newtokens[i] != NULL; ++i)
-    {
-        printf("%s ",newtokens[i]);
-    }
-    if( execvp(newtokens[0],newtokens) == -1)
-        perror("Exec failed");
-    exit(0);
+    // strcpy(portno,"5000");
+    // strcpy(host,"localhost");
+    filltokens(newtokens,display);
+    strcpy(newtokens[1],tokens[1]);
+    myexec(newtokens);
+    for (int i = 0; i < 5; ++i)
+      free(newtokens[i]);
 }
 
 
 void getsq (char **tokens)
 {
-    int i,pid;
+    int pid;
     char *newtokens[6];
-
-    for (i = 0; i < 5; ++i)
-    {
-      newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
-    }
-    strcpy(portno,"5000");
-    strcpy(host,"localhost");
-    i = 1;
+ 
+    // strcpy(portno,"5000");
+    // strcpy(host,"localhost");
+    filltokens(newtokens);
+    int i = 1;
     while (tokens[i] != NULL)
     {
-        filltokens(newtokens,tokens[i]);
+        strcpy(newtokens[1],tokens[i]);
+        pid = fork();
+        if(pid == -1){
+          printf("Fork Failed\n");
+          exit(1);
+        }
+        else if(pid == 0){
+            myexec(newtokens);
+        }
+        else{
+          wait(NULL);
+          i++;
+        }
+        
+    }
+    for (i = 0; i < 5; ++i)
+      free(newtokens[i]);
+    exit(0);
+}
+
+
+void getpl(char **tokens)
+{
+    int pid;
+    char *newtokens[6];
+    // strcpy(portno,"5000");
+    // strcpy(host,"localhost");
+    filltokens(newtokens);
+    int i = 1;
+    while (tokens[i] != NULL)
+    {
+        strcpy(newtokens[1],tokens[i]);
         pid = fork();
         if(pid == -1){
           printf("Fork Failed\n");
@@ -383,71 +400,38 @@ void getsq (char **tokens)
         }
         else if(pid == 0)
         {
-            if( execvp(newtokens[0],newtokens) == -1)
-                perror("Exec failed");
+            myexec(newtokens);
         }
-        waitpid(pid,NULL,0);
         i++;
     }
+    while(wait(NULL)  > 0);
     for (i = 0; i < 5; ++i)
       free(newtokens[i]);
     exit(0);
 }
 
-void getpl (char **tokens)
+void filltokens(char **newtokens,bool display)
 {
-    pthread_t tid[MAX_NUM_TOKENS];          //array of threads 
-    int i;
-    for (i=1; tokens[i] != NULL; i++) //create threads by calling function 'connection' and passing thread number as argument
-    {   
-        if( pthread_create( &tid[i] , NULL ,  connection , (void*) tokens[i]) < 0)      
-        {
-            error("could not create thread");
-        }
-    }
-    int j;
-    for (j = 1; j < i; j++)
-       pthread_join(tid[j], NULL);      //join the threads when all have been executed
-    wait(NULL);
-    return;
-}
-
-void *connection(void *threadid)
-{
-    int i,pid;
-    char *newtokens[6];
-    for (i = 0; i < 5; ++i)
-    {
+    for (int i = 0; i < 5; ++i)
       newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
-    }
-    // printf("%d\n", getpid());
-    strcpy(portno,"5000");
-    strcpy(host,"localhost");
-    filltokens(newtokens,(char*)threadid);
-    printf("Thread: %s\n", (char*)threadid);
-    pid = fork();
-    if(pid == -1){
-      printf("Fork Failed\n");
+    strcpy(newtokens[0],"./get-one-file-sig");
+    if(strcmp(host,"") == 0 || strcmp(portno,"") == 0 ){
+      printf("Please use server command to specify hostname and portno\n");
       exit(1);
     }
-    else if(pid == 0)
-    {
-        if( execvp(newtokens[0],newtokens) == -1)
-            perror("Exec failed");
-    }
-    exit(0);
-}
-
-char** filltokens(char*newtokens[],char*file)
-{
-    strcpy(newtokens[0],"./get-one-file-sig");
-    strcpy(newtokens[1],file);
     strcpy(newtokens[2],host);
     strcpy(newtokens[3],portno);
-    strcpy(newtokens[4],"nodisplay");
+    if(display)
+      strcpy(newtokens[4],"display");
+    else 
+      strcpy(newtokens[4],"nodisplay");
     newtokens[5]=NULL;
-    return newtokens;
 } 
-
+void myexec(char **tokens)
+{
+      if( execvp(tokens[0],tokens) == -1)
+          perror("Exec failed");
+      exit(0);
+}
 // getpl files/foo0.txt files/foo1.txt files/foo2.txt files/foo3.txt
 // getsq files/foo0.txt files/foo1.txt files/foo2.txt files/foo3.txt
