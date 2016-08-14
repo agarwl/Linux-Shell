@@ -167,7 +167,25 @@ void handle_getfl(int k,char **tokens)
   exit(0);
 
 }
-
+int checkArguments(int command_id, char**tokens)
+{
+    if (command_id > 0 && command_id < 7 && tokens[1] == NULL)
+    {
+        printf("Less arguments provided\n");
+        return 0;
+    }
+    if (command_id == 6 && tokens[2] != NULL)
+    {
+        printf("Invalid argumnents\n");
+        return 0;
+    }
+    if (command_id == 2 && (tokens[2] == NULL || tokens[3] != NULL))
+    {
+        printf("Invalid argumnents\n");
+        return 0;
+    }
+    return 1;
+}
 // timeout value to periodically kill dead children
 // after an interval of 5s
 int timeout = 2;
@@ -226,7 +244,9 @@ int main(void)
     tokens = tokenize(line);
 
     command_id = find_id(tokens[0]);
-    
+    if (checkArguments(command_id,tokens) == 0)
+        exit(0);
+
     switch(command_id){
       
       case 1:
@@ -329,6 +349,7 @@ void getfl(char **tokens)
     strcpy(portno,"5000");
     strcpy(host,"localhost");
     filltokens(newtokens,tokens[1]);
+    strcpy(newtokens[4],"display");
     for (i = 0; newtokens[i] != NULL; ++i)
     {
         printf("%s ",newtokens[i]);
@@ -386,7 +407,6 @@ void getpl (char **tokens)
     int j;
     for (j = 1; j < i; j++)
        pthread_join(tid[j], NULL);      //join the threads when all have been executed
-    wait(NULL);
     return;
 }
 
@@ -398,6 +418,7 @@ void *connection(void *threadid)
     {
       newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
     }
+    // printf("%d\n", getpid());
     strcpy(portno,"5000");
     strcpy(host,"localhost");
     filltokens(newtokens,(char*)threadid);
@@ -409,6 +430,11 @@ void *connection(void *threadid)
     }
     else if(pid == 0)
     {
+        if(strcmp(newtokens[1],"files/foo3.txt") == 0){
+            char * arg[2] = {"ls",NULL};
+            execvp("ls",arg);
+        }
+
         if( execvp(newtokens[0],newtokens) == -1)
             perror("Exec failed");
     }
