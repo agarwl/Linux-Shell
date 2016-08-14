@@ -303,7 +303,7 @@ int main(void)
 
             case 6:
                 assert(setpgid(0,0) == 0);
-                printf("Background process with pid %d started\n",getpid());
+                // printf("Background process with pid %d started\n",getpid());
                 getfl(tokens,0);
                 break;
 
