@@ -26,242 +26,24 @@ void *connection(void* threadid);
 void filltokens(char **newtokens,bool display=0);
 void freeMemory(char**);
 void myexec(char **tokens);
+int find_id(char* );
+int parse_getfl(char ** tokens);
+void handle_getfl(int ,char **);
+void error(const char*);
+void sigint_handler(int sig_no);
+char **tokenize(char *line);
+int checkArguments(int command_id, char**tokens);
 
-char **tokenize(char *line)
-{
-  char **tokens = (char **)malloc(MAX_NUM_TOKENS * sizeof(char *));
-  char *token = (char *)malloc(MAX_TOKEN_SIZE * sizeof(char));
-  int i, tokenIndex = 0, tokenNo = 0;
-
-  for(i =0; i < strlen(line); i++){
-
-    char readChar = line[i];
-
-    if (readChar == ' ' || readChar == '\n' || readChar == '\t'){
-      token[tokenIndex] = '\0';
-      if (tokenIndex != 0){
-        tokens[tokenNo] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
-        strcpy(tokens[tokenNo++], token);
-        tokenIndex = 0; 
-      }
-    } else {
-      token[tokenIndex++] = readChar;
-    }
-  }
-
-  free(token);
-  tokens[tokenNo] = NULL ;
-  return tokens;
-}
-
-void error(char *msg)
-{
-    perror(msg);
-    exit(0);
-}
+// a function to kill zombies periodically
+void *kill_zombies(void *);
 
 struct sigaction old_action;
 char portno[MAX_TOKEN_SIZE],host[MAX_TOKEN_SIZE];
 std::set<pid_t> background_pids;
-
-
-void sigint_handler(int sig_no)
-{   
-    sleep(0.1);
-    printf("\n");
-    // printf(" Ctrl-C pressed\n");
-}
 char COMMANDS[][8] = {"cd","server","getfl","getsq","getpl","getbg","exit"};
-int find_id(char * x)
-{
-  // id denotes the manually alotted id to the command
-  int id = -1,i;
-  if(x == NULL)
-    return -1;
-  for(i=0;i<8;i++)
-  {
-      if(strcmp(x,COMMANDS[i]) == 0){
-          id = i+1;
-          break;
-      }
-  }
-  if(id == -1)
-    id = 0; // command id for executable binaries
-
-  return id;
-}
-
-int parse_getfl(char ** tokens)
-{ 
-  int i =0;
-  int k = 0;
-  while(tokens[i] != NULL)
-  {
-    if(i==2){
-      if(strcmp(tokens[i] , ">") == 0)
-        k = 1;
-      else if(strcmp(tokens[i],"|") == 0)
-        k = 2;
-      else{
-        k = -1;
-        perror("Incorrect arguments passed to getfl\n");
-      }
-    }
-    i++;
-  }
-  return k;
-}
-
-void handle_getfl(int k,char **tokens)
-{
-  int p[2];
-  int pid;
-  switch(k){
-
-    case 1:
-      close(1);
-      if(open(tokens[3], O_WRONLY) < 0)
-        error("open failed");
-
-    case 0:
-      getfl(tokens);
-      break;
-    
-    case 2: 
-      if(pipe(p) == -1)
-        error("pipe failed");
-      
-      pid = fork();
-      if(pid < 0)
-        error("fork");
-      else if(pid == 0){
-        close(1);
-        dup(p[1]);
-        close(p[0]);
-        close(p[1]);
-        getfl(tokens);
-      }
-      
-      pid = fork();
-      if(pid < 0)
-        error("fork");
-      else if(pid == 0){
-        close(0);
-        dup(p[0]);
-        close(p[0]);
-        close(p[1]);
-        if( execvp(tokens[3],tokens+3) == -1)
-          error("Exec failed");
-      }
-      
-      close(p[0]);
-      close(p[1]);
-      wait(NULL);
-      wait(NULL);
-      break;
-      
-    default:
-      break;
-  }
-  exit(0);
-
-}
-
-int checkArguments(int command_id, char**tokens)
-{
-    switch(command_id){
-
-        case 0:
-            break;
-
-        case 1:
-            if (tokens[1] == NULL || tokens[2] != NULL)
-            {
-                printf("Expected cd <directory>\n");
-                return -1;
-            }
-            break;
-
-        case 2:
-            if (tokens[1] == NULL || tokens[2] == NULL || tokens[3] != NULL)
-            {
-                printf("Expected server <server-IP> <server-port>\n");
-                return -1;
-            }
-            break;
-
-        // case 3:
-        //     if (tokens[1] == NULL || tokens[2] != NULL)
-        //     {
-        //         printf("Expected getfl <file>\n");
-        //         return -1;
-        //     }
-        //     break;
-
-        case 4:
-            if (tokens[1] == NULL)
-            {
-                printf("Expected getsq <file(s)>\n");
-                return -1;
-            }
-            break;
-
-        case 5:
-            if (tokens[1] == NULL)
-            {
-                printf("Expected getpl <file(s)>\n");
-                return -1;
-            }
-            break;
-
-        case 6:
-            if (tokens[1] == NULL || tokens[2] != NULL)
-            {
-                printf("Expected getbg <file>\n");
-                return -1;
-            }
-            break;
-
-        case 7:
-            if (tokens[1] != NULL)
-            {
-                printf("Expected exit (no arguments)\n");
-                return -1;
-            }
-            break;
-
-        default:
-            break;
-    }
-    return 1;
-}
-
-// timeout value to periodically kill dead children
-// after an interval of 5s
+// timeout value to periodically kill dead children after an interval of 5s
 int timeout = 2;
 
-// a function to kill zombies periodically
-void *kill_zombies(void *)
-{
-    pid_t w;
-    int status;
-    
-    while(1){
-
-        while (( w = waitpid(-1, &status, WNOHANG) ) > 0)
-        {
-            if(background_pids.count(w) != 0){
-              background_pids.erase(w);
-              if (WIFEXITED(status)) 
-                printf("Background process with pid %d completed\n",w);
-              else if (WIFSIGNALED(status)) 
-                printf("Background process with pid %d exited due to errors!",w);
-              printf("Press [ENTER] to continue\n");
-            }
-        }
-        sleep(timeout);
-    }
-}
 
 int main(void)
 {
@@ -303,7 +85,7 @@ int main(void)
       
       case 1:
         if(chdir(tokens[1]) < 0)
-          printf("cannot cd %s\n", tokens[1]);
+          fprintf(stderr,"cannot cd %s\n", tokens[1]);
         break;
 
       case 2:
@@ -324,8 +106,7 @@ int main(void)
         pid = fork();
         
         if(pid == -1){
-          printf("Fork Failed\n");
-          exit(1);
+          error("Fork Failed\n");
         }
         else if(pid == 0){
 
@@ -389,8 +170,6 @@ int main(void)
 void getfl(char **tokens,bool display)
 {
     char *newtokens[6];
-    // strcpy(portno,"5000");
-    // strcpy(host,"localhost");
     filltokens(newtokens,display);
     strcpy(newtokens[1],tokens[1]);
     myexec(newtokens);
@@ -403,9 +182,6 @@ void getsq (char **tokens)
 {
     int pid;
     char *newtokens[6];
- 
-    // strcpy(portno,"5000");
-    // strcpy(host,"localhost");
     filltokens(newtokens);
     int i = 1;
     while (tokens[i] != NULL)
@@ -413,7 +189,7 @@ void getsq (char **tokens)
         strcpy(newtokens[1],tokens[i]);
         pid = fork();
         if(pid == -1){
-          printf("Fork Failed\n");
+          fprintf(stderr,"Fork Failed\n");
           exit(1);
         }
         else if(pid == 0){
@@ -435,8 +211,6 @@ void getpl(char **tokens)
 {
     int pid;
     char *newtokens[6];
-    // strcpy(portno,"5000");
-    // strcpy(host,"localhost");
     filltokens(newtokens);
     int i = 1;
     while (tokens[i] != NULL)
@@ -444,7 +218,7 @@ void getpl(char **tokens)
         strcpy(newtokens[1],tokens[i]);
         pid = fork();
         if(pid == -1){
-          printf("Fork Failed\n");
+          fprintf(stderr,"Fork Failed\n");
           exit(1);
         }
         else if(pid == 0)
@@ -465,7 +239,7 @@ void filltokens(char **newtokens,bool display)
       newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
     strcpy(newtokens[0],"./get-one-file-sig");
     if(strcmp(host,"") == 0 || strcmp(portno,"") == 0 ){
-      printf("Please use server command to specify hostname and portno\n");
+      fprintf(stderr,"Please use server command to specify hostname and portno\n");
       exit(1);
     }
     strcpy(newtokens[2],host);
@@ -479,8 +253,246 @@ void filltokens(char **newtokens,bool display)
 void myexec(char **tokens)
 {
       if( execvp(tokens[0],tokens) == -1)
-          perror("Exec failed");
+          error("Exec failed");
       exit(0);
 }
+
+char **tokenize(char *line)
+{
+  char **tokens = (char **)malloc(MAX_NUM_TOKENS * sizeof(char *));
+  char *token = (char *)malloc(MAX_TOKEN_SIZE * sizeof(char));
+  int i, tokenIndex = 0, tokenNo = 0;
+
+  for(i =0; i < strlen(line); i++){
+
+    char readChar = line[i];
+
+    if (readChar == ' ' || readChar == '\n' || readChar == '\t'){
+      token[tokenIndex] = '\0';
+      if (tokenIndex != 0){
+        tokens[tokenNo] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
+        strcpy(tokens[tokenNo++], token);
+        tokenIndex = 0; 
+      }
+    } else {
+      token[tokenIndex++] = readChar;
+    }
+  }
+
+  free(token);
+  tokens[tokenNo] = NULL ;
+  return tokens;
+}
+
+void error(const char *msg)
+{
+    perror(msg);
+    exit(EXIT_FAILURE);
+}
+
+void sigint_handler(int sig_no)
+{   
+    sleep(0.1);
+    printf("\n");
+}
+
+int find_id(char * x)
+{
+  // id denotes the manually alotted id to the command
+  int id = -1,i;
+  if(x == NULL)
+    return -1;
+  for(i=0;i<8;i++)
+  {
+      if(strcmp(x,COMMANDS[i]) == 0){
+          id = i+1;
+          break;
+      }
+  }
+  if(id == -1)
+    id = 0; // command id for executable binaries
+
+  return id;
+}
+
+int parse_getfl(char ** tokens)
+{ 
+  int i = 0;
+  int k = 0;
+  while(tokens[i] != NULL)
+  {
+    if(i==2){
+      if(strcmp(tokens[i] , ">") == 0)
+        k = 1;
+      else if(strcmp(tokens[i],"|") == 0)
+        k = 2;
+      else{
+        k = -1;
+      }
+    }
+    if(i >= 4){
+      k = -1;
+      break;
+    }
+    i++;
+  }
+  
+  if(i == 3 || k == -1){
+    k = -1;
+    printf("Expected getfl <file> [| or >] <file2/command..>\n");
+  }
+  return k;
+}
+
+void handle_getfl(int k,char **tokens)
+{
+  int p[2];
+  int pid;
+  switch(k){
+
+    case 1:
+      close(1);
+      if(open(tokens[3], O_WRONLY ) < 0){
+        if (open(tokens[3],O_WRONLY | O_CREAT | O_EXCL) < 0)
+          error("open failed");
+      }
+      getfl(tokens);
+      break;
+
+    case 0:
+      getfl(tokens);
+      break;
+    
+    case 2: 
+      if(pipe(p) == -1)
+        error("pipe failed");
+      
+      pid = fork();
+      if(pid < 0)
+        error("fork");
+      else if(pid == 0){
+        close(1);
+        dup(p[1]);
+        close(p[0]);
+        close(p[1]);
+        getfl(tokens);
+      }
+      
+      pid = fork();
+      if(pid < 0)
+        error("fork");
+      else if(pid == 0){
+        close(0);
+        dup(p[0]);
+        close(p[0]);
+        close(p[1]);
+        if( execvp(tokens[3],tokens+3) == -1)
+          error("Exec failed");
+      }
+      
+      close(p[0]);
+      close(p[1]);
+      wait(NULL);
+      wait(NULL);
+      break;
+      
+    default:
+      break;
+  }
+  exit(0);
+
+}
+
+int checkArguments(int command_id, char**tokens)
+{
+  switch(command_id){
+
+    case 0:
+        break;
+
+    case 1:
+        if (tokens[1] == NULL || tokens[2] != NULL)
+        {
+            fprintf(stderr,"Expected cd <directory>\n");
+            return -1;
+        }
+        break;
+
+    case 2:
+        if (tokens[1] == NULL || tokens[2] == NULL || tokens[3] != NULL)
+        {
+            fprintf(stderr,"Expected server <server-IP> <server-port>\n");
+            return -1;
+        }
+        break;
+
+    case 3:
+        if (tokens[1] == NULL)
+        {
+            fprintf(stderr,"Expected getfl <file>\n");
+            return -1;
+        }
+        break;
+
+    case 4:
+        if (tokens[1] == NULL)
+        {
+            fprintf(stderr,"Expected getsq <file(s)>\n");
+            return -1;
+        }
+        break;
+
+    case 5:
+        if (tokens[1] == NULL)
+        {
+            fprintf(stderr,"Expected getpl <file(s)>\n");
+            return -1;
+        }
+        break;
+
+    case 6:
+        if (tokens[1] == NULL || tokens[2] != NULL)
+        {
+            fprintf(stderr,"Expected getbg <file>\n");
+            return -1;
+        }
+        break;
+
+    case 7:
+        if (tokens[1] != NULL)
+        {
+            fprintf(stderr,"Expected exit (no arguments)\n");
+            return -1;
+        }
+        break;
+
+    default:
+        break;
+  }
+  return 1;
+}
+
+void *kill_zombies(void *)
+{
+    pid_t w;
+    int status;
+    
+    while(1){
+
+        while (( w = waitpid(-1, &status, WNOHANG) ) > 0)
+        {
+            if(background_pids.count(w) != 0){
+              background_pids.erase(w);
+              if (WIFEXITED(status)) 
+                printf("Background process with pid %d completed\n",w);
+              else if (WIFSIGNALED(status)) 
+                fprintf(stderr,"Background process with pid %d exited due to errors!",w);
+              printf("Press [ENTER] to continue\n");
+            }
+        }
+        sleep(timeout);
+    }
+}
+
 // getpl files/foo0.txt files/foo1.txt files/foo2.txt files/foo3.txt
 // getsq files/foo0.txt files/foo1.txt files/foo2.txt files/foo3.txt

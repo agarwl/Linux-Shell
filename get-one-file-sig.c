@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <signal.h> 
 
 #define min(a, b) ((a < b) ? a : b)
@@ -18,12 +17,12 @@ struct sigaction old_action;
 
 void sigint_handler(int sig_no)
 {
-    printf(" Received SIGINT; downloaded %d bytes so far.\n",numbytes_read);
+    fprintf(stderr," Received SIGINT; downloaded %d bytes so far.\n",numbytes_read);
     sigaction(SIGINT, &old_action, NULL);
 }
 
 int readMyFile(int ,char*); //read file and discard
-void error(char *msg)
+void error(const char *msg)
 {
     perror(msg);
     exit(0);
@@ -100,12 +99,15 @@ int readMyFile(int sock,char* mode)
     while(( bytes_read = read(sock, buffer, bufflen) ) > 0)
     {
         if (strcmp(buffer,"File requested does not exist\n") == 0)
-            printf("%s",buffer );
+        {
+            fprintf(stderr,"%s",buffer);
+            break;
+        }
         numbytes_read += bytes_read;
         if(toPrint){
-            printf("%d bytes read\n",bytes_read);
-            // printf("%.*s", bytes_read, buffer);
-            printf("%s",buffer );
+            // printf("%d bytes read\n",bytes_read);
+            printf("%.*s", bytes_read, buffer);
+            // printf("%s",buffer );
         }
     }; 
 

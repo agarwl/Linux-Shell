@@ -3,9 +3,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
-#include <time.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
+#include <signal.h> 
 
 #define min(a, b) ((a < b) ? a : b)
 #define NUM_FILES 10000
@@ -14,7 +15,7 @@
 int readMyFile(int ,char*); //read file and discard
 
 
-void error(char *msg)
+void error(const char *msg)
 {
     perror(msg);
     exit(0);

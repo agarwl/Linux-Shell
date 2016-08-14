@@ -17,7 +17,7 @@ int senddata(int sock, void *buf, int buflen);
 // a function to send a file to the the client
 int sendfile(int sock, FILE *f);
 
-void error(char *msg)
+void error(const char *msg)
 {
     perror(msg);
     exit(1);
@@ -27,7 +27,7 @@ void error(char *msg)
 int timeout = 5;
 
 // a function to kill zombies periodically
-void *kill_zombies()
+void *kill_zombies(void *)
 {
     int w;
     while(1){
@@ -87,8 +87,7 @@ int main(int argc, char *argv[])
     pthread_t my_thread;
     if(pthread_create( &my_thread , NULL ,  kill_zombies , NULL) < 0)
     {
-        perror("could not create thread");
-        return 1;
+        error("could not create thread");
     }
 
      int pid,status,w;
@@ -96,7 +95,7 @@ int main(int argc, char *argv[])
      while(1){
 
         /* accept a new request, create a newsockfd */
-        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *)&clilen);
 
         // if error on creating new socket, exit
         if (newsockfd < 0) 
