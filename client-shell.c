@@ -69,6 +69,7 @@ void sigint_handler(int sig_no)
     if(child_pid != 0){
     //   printf("%d in handler\n",child_pid);
       kill(child_pid, SIGINT);
+      waitpid(child_pid,NULL,0);
     }
 }
 char COMMANDS[][8] = {"cd","server","getfl","getsq","getpl","getbg","exit"};
@@ -291,6 +292,8 @@ int main(void)
             waitpid(pid, NULL, 0);
           }
           else{
+            if (setpgid(pid, pid) < 0 && errno != EACCES)
+              continue;
             myid = pid;
             child_pid = 0;
             // printf("Background process with pid %d and pgid %d started\n",pid,getpgid(pid));
@@ -362,7 +365,7 @@ void getsq (char **tokens)
     }
     for (i = 0; i < 5; ++i)
       free(newtokens[i]);
-    return;
+    exit(0);
 }
 
 void getpl (char **tokens)
