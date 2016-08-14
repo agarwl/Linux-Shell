@@ -169,20 +169,69 @@ void handle_getfl(int k,char **tokens)
 
 int checkArguments(int command_id, char**tokens)
 {
-    if (command_id > 0 && command_id < 7 && tokens[1] == NULL)
-    {
-        printf("Less arguments provided\n");
-        return -1;
-    }
-    if (((command_id == 6 || command_id == 1) && tokens[2] != NULL) || (command_id == 7 && tokens[1] != NULL))
-    {
-        printf("More argumnents given\n");
-        return -1;
-    }
-    if (command_id == 2 && (tokens[2] == NULL || tokens[3] != NULL))
-    {
-        printf("Invalid argumnents\n");
-        return -1;
+    switch(command_id){
+
+        case 0:
+            break;
+
+        case 1:
+            if (tokens[1] == NULL || tokens[2] != NULL)
+            {
+                printf("Expected cd <directory>\n");
+                return -1;
+            }
+            break;
+
+        case 2:
+            if (tokens[1] == NULL || tokens[2] == NULL || tokens[3] != NULL)
+            {
+                printf("Expected server <server-IP> <server-port>\n");
+                return -1;
+            }
+            break;
+
+        // case 3:
+        //     if (tokens[1] == NULL || tokens[2] != NULL)
+        //     {
+        //         printf("Expected getfl <file>\n");
+        //         return -1;
+        //     }
+        //     break;
+
+        case 4:
+            if (tokens[1] == NULL)
+            {
+                printf("Expected getsq <file(s)>\n");
+                return -1;
+            }
+            break;
+
+        case 5:
+            if (tokens[1] == NULL)
+            {
+                printf("Expected getpl <file(s)>\n");
+                return -1;
+            }
+            break;
+
+        case 6:
+            if (tokens[1] == NULL || tokens[2] != NULL)
+            {
+                printf("Expected getbg <file>\n");
+                return -1;
+            }
+            break;
+
+        case 7:
+            if (tokens[1] != NULL)
+            {
+                printf("Expected exit (no arguments)\n");
+                return -1;
+            }
+            break;
+
+        default:
+            break;
     }
     return 1;
 }

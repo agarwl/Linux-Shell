@@ -142,9 +142,15 @@ int main(int argc, char *argv[])
             if(filename != NULL){
 
                 FILE *filehandle = fopen(filename, "rb");
-                if (filehandle != NULL){
-                  sendfile(newsockfd, filehandle);
-                  fclose(filehandle);
+                if (filehandle != NULL)
+                {
+                    sendfile(newsockfd, filehandle);
+                    fclose(filehandle);
+                }
+                else
+                {
+                    strcpy(buffer,"File requested does not exist\n");
+                    write(newsockfd,buffer,strlen(buffer));
                 }
             }
             //close the connect

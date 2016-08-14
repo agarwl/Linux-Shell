@@ -99,6 +99,8 @@ int readMyFile(int sock,char* mode)
     numbytes_read = 0;
     while(( bytes_read = read(sock, buffer, bufflen) ) > 0)
     {
+        if (strcmp(buffer,"File requested does not exist\n") == 0)
+            printf("%s",buffer );
         numbytes_read += bytes_read;
         if(toPrint){
             printf("%d bytes read\n",bytes_read);
