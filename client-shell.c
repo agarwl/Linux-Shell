@@ -20,6 +20,7 @@ void getfl(char **tokens);
 void getsq(char **tokens);
 void getpl(char **tokens);
 void *connection(void* threadid);
+char** filltokens(char*newtokens[],char*file);
 
 char **tokenize(char *line)
 {
@@ -313,22 +314,19 @@ int main(void)
 void getfl(char **tokens)
 {
     int i;
-    for (i = 2; i < 5; ++i)
+    char *newtokens[6];
+    for (i = 0; i < 5; ++i)
     {
-      tokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
+      newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
     }
     strcpy(portno,"5000");
     strcpy(host,"localhost");
-    strcpy(tokens[0],"./get-one-file-sig");
-    strcpy(tokens[2],host);
-    strcpy(tokens[3],portno);
-    strcpy(tokens[4],"display");
-    tokens[5] = NULL;
-    for (i = 0; tokens[i] != NULL; ++i)
+    filltokens(newtokens,tokens[1]);
+    for (i = 0; newtokens[i] != NULL; ++i)
     {
-        printf("%s\t",tokens[i]);
+        printf("%s ",newtokens[i]);
     }
-    if( execvp(tokens[0],tokens) == -1)
+    if( execvp(newtokens[0],newtokens) == -1)
         perror("Exec failed");
     exit(0);
 }
@@ -336,7 +334,7 @@ void getfl(char **tokens)
 
 void getsq (char **tokens)
 {
-    int i;
+    int i,pid;
     char *newtokens[6];
 
     for (i = 0; i < 5; ++i)
@@ -345,25 +343,21 @@ void getsq (char **tokens)
     }
     strcpy(portno,"5000");
     strcpy(host,"localhost");
-    strcpy(newtokens[0],"./get-one-file-sig");
-    strcpy(newtokens[2],host);
-    printf("%s\n", host);
-    strcpy(newtokens[3],portno);
-    printf("%s\n", portno);
-    strcpy(newtokens[4],"nodisplay");
-    newtokens[5] = NULL;
     i = 1;
     while (tokens[i] != NULL)
     {
-        strcpy(newtokens[1],tokens[i]);
-        int j;
-        for (j = 0; newtokens[j] != NULL; ++j)
-        {
-            printf("%s ",newtokens[j]);
+        filltokens(newtokens,tokens[i]);
+        pid = fork();
+        if(pid == -1){
+          printf("Fork Failed\n");
+          exit(1);
         }
-        if( execvp(newtokens[0],newtokens) == -1)
-            perror("Exec failed");
-        exit(0);
+        else if(pid == 0)
+        {
+            if( execvp(newtokens[0],newtokens) == -1)
+                perror("Exec failed");
+        }
+        waitpid(pid,NULL,0);
         i++;
     }
     for (i = 0; i < 5; ++i)
@@ -385,13 +379,13 @@ void getpl (char **tokens)
     int j;
     for (j = 1; j < i; j++)
        pthread_join(tid[j], NULL);      //join the threads when all have been executed
+    wait(NULL);
     return;
 }
 
 void *connection(void *threadid)
 {
-    int i;
-    printf("Thread: %s\n", (char*) threadid);
+    int i,pid;
     char *newtokens[6];
     for (i = 0; i < 5; ++i)
     {
@@ -399,15 +393,31 @@ void *connection(void *threadid)
     }
     strcpy(portno,"5000");
     strcpy(host,"localhost");
-    newtokens[0] = "./get-one-file-sig";
-    newtokens[1] = (char*) threadid;
-    newtokens[2] = host;
-    newtokens[3] = portno;
-    newtokens[4] = "nodisplay";
-    newtokens[5] = NULL;
-    if( execvp(newtokens[0],newtokens) == -1)
-        perror("Exec failed");
-    exit(0);
+    filltokens(newtokens,(char*)threadid);
+    printf("Thread: %s\n", (char*)threadid);
+    pid = fork();
+    if(pid == -1){
+      printf("Fork Failed\n");
+      exit(1);
+    }
+    else if(pid == 0)
+    {
+        if( execvp(newtokens[0],newtokens) == -1)
+            perror("Exec failed");
+    }
+    return;
 }
 
-// getpl files/foo0.txt files/foo1.txt
+char** filltokens(char*newtokens[],char*file)
+{
+    strcpy(newtokens[0],"./get-one-file-sig");
+    strcpy(newtokens[1],file);
+    strcpy(newtokens[2],host);
+    strcpy(newtokens[3],portno);
+    strcpy(newtokens[4],"nodisplay");
+    newtokens[5]=NULL;
+    return newtokens;
+} 
+
+// getpl files/foo0.txt files/foo1.txt files/foo2.txt files/foo3.txt
+// getsq files/foo0.txt files/foo1.txt files/foo2.txt files/foo3.txt
