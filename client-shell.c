@@ -9,6 +9,7 @@
 #include <signal.h> 
 #include <stdbool.h>
 #include <pthread.h>
+#include <errno.h>
 
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
@@ -175,9 +176,12 @@ int timeout = 2;
 void *kill_zombies()
 {
     int w;
+    
     while(1){
+        printf("Still working");
         while (( w = waitpid(-1, NULL, WNOHANG) ) > 0)
         {
+
             if(getpgid(w) != ppgid){
               printf("Background process with pid %d completed\n",w);
             }
@@ -408,7 +412,7 @@ void *connection(void *threadid)
         if( execvp(newtokens[0],newtokens) == -1)
             perror("Exec failed");
     }
-    return;
+    exit(0);
 }
 
 char** filltokens(char*newtokens[],char*file)
