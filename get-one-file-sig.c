@@ -17,8 +17,9 @@ struct sigaction old_action;
 
 void sigint_handler(int sig_no)
 {
-    fprintf(stderr," Received SIGINT; downloaded %d bytes so far.\n",numbytes_read);
+    fprintf(stderr,"\nProcess with pid %d received SIGINT, downloaded %d bytes so far",getpid(),numbytes_read);
     sigaction(SIGINT, &old_action, NULL);
+    // exit(0);
 }
 
 int readMyFile(int ,char*); //read file and discard
@@ -107,6 +108,7 @@ int readMyFile(int sock,char* mode)
         if(toPrint){
             // printf("%d bytes read\n",bytes_read);
             printf("%.*s", bytes_read, buffer);
+            fflush(stdout);
             // printf("%s",buffer );
         }
     }; 

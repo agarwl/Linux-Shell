@@ -1,0 +1,150 @@
+->Invalid number of arguments provided to cd:
+	Hello>cd 
+	Expected cd <directory>
+	Hello>
+
+->Trying cd to a non-existent directory
+	Hello>cd ../abc
+	cannot cd ../abc
+	Hello>
+
+->Invalid number of arguments provided to server command:
+	Hello>server localhost
+	Expected server <server-IP> <server-port>
+	Hello>
+
+	Hello>server localhost 5000 10
+	Expected server <server-IP> <server-port>
+	Hello>getfl files/foo0.txt
+	Please use server command to specify hostname and portno
+	Hello>
+
+->Executing getfl/getsq/getpl without specifying server hostname and port number:
+	Hello>getfl files/foo0.txt
+	Please use server command to specify hostname and portno
+	Hello>
+
+	Hello>getsq files/foo0.txt
+	Please use server command to specify hostname and portno
+	Hello>
+
+	Hello>getpl files/foo0.txt
+	Please use server command to specify hostname and portno
+	Hello>
+
+->Invalid number of arguments provided to getfl command:
+	Hello>getfl
+	Expected getfl <file>
+	Hello>
+
+->Pressing Ctrl-C while the file dowload is in progress:
+	Hello>getfl files/foo0.txt
+	0000 000^C
+
+	Process with pid 7336 received SIGINT, downloaded 2048 bytes so far
+	Hello>
+
+
+->Requesting for a non-existent file:
+	Hello>getfl foo     
+	File requested does not exist
+	Hello>
+
+->Requesting for a file when server is not running:
+	Hello>getfl files/foo0.txt
+	ERROR connecting: Connection refused
+	Hello>
+
+->Invalid number of arguments provided to getfl command:
+	Hello>getfl files/foo.txt > a.txt b.txt
+	Expected getfl <file> [| or >] <file2/command..>
+	Hello>
+
+->Pressing Ctrl-C while the file dowload is in progress in redirection mode:
+	Hello>getfl files/foo0.txt > a.txt
+	^C Received SIGINT; downloaded 6144 bytes so far.
+
+	Hello>
+
+->Running a command in pipe with getfl:
+	Hello>getfl files/foo0.txt | ls
+	a.txt		files	      get-one-file.c	  makefile	 server-slow.c
+	client-shell	foo0.txt      get-one-file-sig	  make-tokens.c  test.c
+	client-shell.c	get-one-file  get-one-file-sig.c  server-slow	 testcases.txt
+	Hello>
+
+->Piping in getfl command:
+	Hello>getfl files/foo0.txt | grep 0
+	0000 0000 0000 0000 0000 0000 0000 0000
+	^C
+
+	Process with pid 7317 received SIGINT, downloaded 3072 bytes so far
+	Hello>
+
+->Invalid command after pipe:
+	Hello>getfl files/foo0.txt | grep
+	Usage: grep [OPTION]... PATTERN [FILE]...
+	Try 'grep --help' for more information.
+	Hello>
+
+->Invalid number of arguments provided to getsq command:
+	Hello>getsq
+	Expected getsq <file(s)>
+	Hello>
+
+->Invalid number of arguments provided to getpl command:
+	Hello>getpl
+	Expected getpl <file(s)>
+	Hello>
+
+->Pressing Ctrl-C while the file dowload is in progress in parallel:
+	Hello>getpl files/foo0.txt files/foo2.txt files/foo3.txt
+	^C
+
+	Process with pid 7442 received SIGINT, downloaded 3072 bytes so far
+
+	Process with pid 7441 received SIGINT, downloaded 3072 bytes so far
+
+	Process with pid 7443 received SIGINT, downloaded 3072 bytes so far
+	Hello>
+
+
+->One file requested in getpl does not exist:
+	Hello>getpl files/foo0.txt asas
+	File requested does not exist
+	^C
+	 Received SIGINT; downloaded 5120 bytes so far.
+	Hello>
+
+->Invalid number of arguments provided to getbg command:
+	Hello>getbg 
+	Expected getbg <file>
+	Hello>
+
+->The download running in background:
+	Hello>getbg files/foo2.txt
+	Hello>
+	Hello>exit
+
+	Process with pid 8375 received SIGINT, downloaded 5120 bytes so far
+
+->Requesting for a non-existent file in getbg:
+	Hello>getbg abc
+	Hello>File requested does not exist
+	Background process with pid 4370 completed
+	Press [ENTER] to continue
+
+->Basic shell commands:
+	Hello>ls
+	a.txt		files	      get-one-file.c	  makefile	 server-slow.c
+	client-shell	foo0.txt      get-one-file-sig	  make-tokens.c  test.c
+	client-shell.c	get-one-file  get-one-file-sig.c  server-slow	 testcases.txt
+	Hello>grep
+	Usage: grep [OPTION]... PATTERN [FILE]...
+	Try 'grep --help' for more information.
+	Hello>
+
+->Invalid number of arguments provided to exit command:
+	Hello>exit 0
+	Expected exit (no arguments)
+	Hello>

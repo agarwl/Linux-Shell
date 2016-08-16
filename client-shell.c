@@ -16,7 +16,7 @@
 #define MAX_INPUT_SIZE 1024
 #define MAX_TOKEN_SIZE 64
 #define MAX_NUM_TOKENS 64
-
+#define PATH_MAX 100
 
 // Helper function to tokenize the user input command
 void getfl(char **tokens,bool display=1);
@@ -43,7 +43,7 @@ std::set<pid_t> background_pids;
 char COMMANDS[][8] = {"cd","server","getfl","getsq","getpl","getbg","exit"};
 // timeout value to periodically kill dead children after an interval of 5s
 int timeout = 2;
-
+char file_path[PATH_MAX+1];
 
 int main(void)
 {
@@ -56,6 +56,9 @@ int main(void)
   int pid;
   int command_id;
   bool toBreak = false;
+
+  char *ptr;
+  ptr = realpath("./get-one-file-sig", file_path);
 
   struct sigaction action;
   memset(&action, 0, sizeof(action));
@@ -159,7 +162,7 @@ int main(void)
     }
     free(tokens);
 
-
+    fflush(stdout);
     if(toBreak)
       break;
   }
@@ -237,7 +240,7 @@ void filltokens(char **newtokens,bool display)
 {
     for (int i = 0; i < 5; ++i)
       newtokens[i] = (char*)malloc(MAX_TOKEN_SIZE*sizeof(char));
-    strcpy(newtokens[0],"./get-one-file-sig");
+    strcpy(newtokens[0],file_path);
     if(strcmp(host,"") == 0 || strcmp(portno,"") == 0 ){
       fprintf(stderr,"Please use server command to specify hostname and portno\n");
       exit(1);
@@ -292,7 +295,8 @@ void error(const char *msg)
 
 void sigint_handler(int sig_no)
 {   
-    sleep(0.1);
+    // sleep(0.1);
+    while(waitpid(0,NULL,0)  > 0);
     printf("\n");
 }
 
@@ -328,11 +332,8 @@ int parse_getfl(char ** tokens)
         k = 2;
       else{
         k = -1;
+        break;
       }
-    }
-    if(i >= 4){
-      k = -1;
-      break;
     }
     i++;
   }
