@@ -148,3 +148,13 @@
 	Hello>exit 0
 	Expected exit (no arguments)
 	Hello>
+
+Hello>getfl make-tokens.c | grep break
+      //   break;
+          break;
+Hello>getbg make-tokens.c
+Hello>
+Hello>
+Hello>
+Hello>Background process with pid 19969 completed
+Press [ENTER] to continue

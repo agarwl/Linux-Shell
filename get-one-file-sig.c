@@ -12,7 +12,9 @@
 #define NUM_FILES 10000
 #define BUF_SIZE 30
 
+// to store for the number of bytes read till now
 int numbytes_read;
+
 struct sigaction old_action;
 
 void sigint_handler(int sig_no)
@@ -32,10 +34,11 @@ void error(const char *msg)
 int main(int argc, char *argv[])
 {
 
-    // signal handler
+    // signal handler for SIGINT signal
     struct sigaction action;
     memset(&action, 0, sizeof(action));
     action.sa_handler = &sigint_handler;
+    // stores the default SIGINT in old_action
     sigaction(SIGINT, &action, &old_action);
 
     struct hostent *server;
